@@ -2,14 +2,29 @@
 
 A read-only smart study planner dashboard that fetches data from your existing SSC trackers and generates intelligent study priorities.
 
-## Features ✨
+## Quick Start
 
-- **Today's Study Plan**: See exactly what to study today with smart prioritization
-- **7-Day Study Plan**: Week-long overview with load balancing
-- **Smart Guidance**: Contextual study recommendations
-- **Load Control**: Limits daily tasks to prevent overload
-- **Exam Proximity Mode**: Auto-adjusts priorities when exam is <60 days away
-- **Zero-Day Prevention**: Always has a suggestion even when no tasks are due
+1. **Install**:
+```bash
+pip install -r requirements.txt
+```
+
+2. **Run**:
+```bash
+streamlit run ssc_weekly_planner.py
+```
+
+3. **Configure** (first time):
+   - Click **⚙️** icon (top-right)
+   - Click **"Secrets"**
+   - Add two secrets:
+   ```
+   GITHUB_TOKEN = "ghp_your_token"
+   GITHUB_REPO = "owner/repo"
+   ```
+   - **Refresh the page**
+
+4. **Done!** Dashboard loads instantly after this.
 
 ## How It Works
 

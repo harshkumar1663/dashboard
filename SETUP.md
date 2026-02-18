@@ -91,8 +91,15 @@ Your GitHub repository must have these files at the root:
 
 ## 4️⃣ Verify Setup
 
+Option A (Recommended - Quick):
 ```bash
-python verify_setup.py
+streamlit run ssc_weekly_planner.py
+# Then add secrets via ⚙️ → Secrets in the UI
+```
+
+Option B (Detailed):
+```bash
+python test_github.py
 ```
 
 This will check:
@@ -109,7 +116,8 @@ streamlit run ssc_weekly_planner.py
 
 The app will open in your browser at `http://localhost:8501`
 
-## 6️⃣ Understanding the UI
+✅ **First load**: ~5-10 seconds (fetches data)
+✅ **Subsequent loads**: Instant (cached)
 
 ### 📅 Today's Study Plan
 Shows:

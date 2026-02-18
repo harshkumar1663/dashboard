@@ -74,64 +74,71 @@ def check_dependencies() -> bool:
     return True
 
 def check_secrets_file() -> Tuple[bool, Dict]:
-    """Check if secrets file exists and is valid"""
+    """Check if secrets are properly configured"""
     print_header("3. Checking Secrets Configuration")
     
+    secrets = {}
     secrets_path = Path(".streamlit/secrets.toml")
     
-    if not secrets_path.exists():
-        print_error(f"Secrets file not found: {secrets_path}")
-        print_warning("Create .streamlit/secrets.toml with:")
+    if secrets_path.exists():
+        print_info(f"Local secrets file found: {secrets_path}")
+        
+        # Parse TOML manually (simple parsing)
+        try:
+            with open(secrets_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip().strip('"\'')
+                        if value and not value.startswith('your_'):
+                            secrets[key] = value
+        except Exception as e:
+            print_warning(f"Could not parse secrets.toml: {e}")
+    else:
+        print_info("No local secrets file (will use Streamlit UI)")
+    
+    required_keys = ['GITHUB_TOKEN', 'GITHUB_REPO']
+    missing_keys = [k for k in required_keys if k not in secrets]
+    
+    if missing_keys:
+        print_warning(f"Missing: {', '.join(missing_keys)}")
         print_info("""
-GITHUB_TOKEN = "your_token_here"
-GITHUB_REPO = "owner/repo"
-GITHUB_BRANCH = "main"
+You can configure secrets two ways:
+1. Via Streamlit UI: Click ⚙️ → Secrets (recommended)
+2. Via .streamlit/secrets.toml file (local only)
+
+To add via UI:
+1. Run: streamlit run ssc_weekly_planner.py
+2. Click ⚙️ (settings) → Secrets
+3. Add GITHUB_TOKEN and GITHUB_REPO
+4. Refresh the page
         """)
-        return False, {}
+        
+        if secrets:
+            print_success(f"Found {len(secrets)} secret(s) in local file")
+        
+        return len(secrets) >= 2, secrets
     
-    print_success(f"Secrets file exists: {secrets_path}")
+    # Validate token format
+    if 'GITHUB_TOKEN' in secrets and not secrets['GITHUB_TOKEN'].startswith('ghp_'):
+        print_warning("GITHUB_TOKEN doesn't start with 'ghp_' (may be invalid)")
     
-    # Parse TOML manually (simple parsing)
-    try:
-        secrets = {}
-        with open(secrets_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    key = key.strip()
-                    value = value.strip().strip('"\'')
-                    secrets[key] = value
-        
-        required_keys = ['GITHUB_TOKEN', 'GITHUB_REPO']
-        missing_keys = [k for k in required_keys if k not in secrets]
-        
-        if missing_keys:
-            for key in missing_keys:
-                print_error(f"Missing required key: {key}")
-            return False, secrets
-        
-        # Validate token format
-        if not secrets['GITHUB_TOKEN'].startswith('ghp_'):
-            print_warning("GITHUB_TOKEN doesn't start with 'ghp_' (may be invalid)")
-        else:
-            print_success("GitHub token format looks valid")
-        
-        # Validate repo format
+    if 'GITHUB_TOKEN' in secrets:
+        print_success("GitHub token format looks valid")
+    
+    # Validate repo format
+    if 'GITHUB_REPO' in secrets:
         if '/' not in secrets['GITHUB_REPO']:
             print_error("GITHUB_REPO must be in format: 'owner/repo'")
             return False, secrets
-        
         print_success("GitHub repo format is valid")
         print_info(f"Repository: {secrets['GITHUB_REPO']}")
-        
-        return True, secrets
     
-    except Exception as e:
-        print_error(f"Error parsing secrets.toml: {e}")
-        return False, {}
+    return True, secrets
 
 def test_github_connection(secrets: Dict) -> bool:
     """Test connection to GitHub API"""

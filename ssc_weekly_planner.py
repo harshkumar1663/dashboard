@@ -10,7 +10,10 @@ st.set_page_config(
     page_title="SSC Weekly Planner",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    menu_items={
+        "About": "SSC Weekly Planner v1.0 - Smart Study Dashboard"
+    }
 )
 
 # Styling
@@ -59,7 +62,8 @@ def fetch_github_file(file_name: str) -> dict:
         url = f"https://api.github.com/repos/{repo}/contents/{file_name}?ref={branch}"
         headers = {"Authorization": f"token {token}"}
         
-        response = requests.get(url, headers=headers, timeout=10)
+        # Faster timeout for Streamlit Cloud
+        response = requests.get(url, headers=headers, timeout=5)
         response.raise_for_status()
         
         # Decode base64 content
@@ -68,12 +72,12 @@ def fetch_github_file(file_name: str) -> dict:
         return json.loads(decoded)
     
     except KeyError as e:
-        st.error(f"❌ Missing secret: {str(e)}")
-        st.info("Add secrets via Streamlit Settings:\n1. Click ⚙️ (settings) → Secret management\n2. Add: GITHUB_TOKEN, GITHUB_REPO")
+        return {}
+    
+    except requests.exceptions.Timeout:
         return {}
     
     except Exception as e:
-        st.error(f"❌ Error fetching {file_name}: {str(e)}")
         return {}
 
 def load_data() -> Tuple[dict, dict]:
@@ -408,28 +412,45 @@ def main():
     st.markdown("**Smart study priorities • Zero decision fatigue • Read-only dashboard**")
     st.markdown("---")
     
+    # Check if secrets are configured
+    try:
+        token = st.secrets["GITHUB_TOKEN"]
+        repo = st.secrets["GITHUB_REPO"]
+    except KeyError:
+        st.error("❌ GitHub secrets not configured.")
+        st.info("""
+### Quick Setup:
+
+1. **Click the ⚙️ icon** (top-right corner)
+2. **Select "Secrets"**
+3. **Paste this**:
+```
+GITHUB_TOKEN = "ghp_your_token_here"
+GITHUB_REPO = "your-username/your-repo"
+```
+
+**Need a token?**
+- https://github.com/settings/tokens
+- "Generate new token (classic)"
+- Select `repo` scope
+- Copy & paste above
+- **Refresh this page** (F5)
+        """)
+        return
+    
     # Load data
     with st.spinner("📥 Fetching your study data..."):
         gk_data, maths_data = load_data()
     
     if not gk_data or not maths_data:
-        st.error("❌ Unable to load study data. Please configure GitHub secrets.")
+        st.warning("⏳ Data is loading... If this takes >10 seconds, check:")
         st.info("""
-### Setup Instructions:
+- ✓ GitHub token is valid
+- ✓ GITHUB_REPO is correct (format: `owner/repo`)
+- ✓ Files exist in repo: `gk_data.json`, `maths_data.json`
+- ✓ Files are committed (not just in local folder)
 
-1. **Click the ⚙️ icon** in the top-right corner
-2. **Select "Secrets"**
-3. **Add these secrets**:
-   ```
-   GITHUB_TOKEN = "ghp_your_token_here"
-   GITHUB_REPO = "your-username/your-repo"
-   ```
-
-**To generate a GitHub token**:
-- Go to https://github.com/settings/tokens
-- Click "Generate new token (classic)"
-- Select `repo` scope only
-- Copy and paste above
+**Try again**: Click refresh button or wait 5 minutes for cache to clear.
         """)
         return
     

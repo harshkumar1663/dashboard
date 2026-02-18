@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Install script for Streamlit Cloud
+# This runs automatically on deploy
+
+pip install -q streamlit requests
