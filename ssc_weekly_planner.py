@@ -51,19 +51,90 @@ st.markdown("""
 # DATA FETCHING
 # ============================================================================
 
+def get_default_branch(token: str, repo: str) -> str:
+    """Get the default branch of the repo"""
+    try:
+        url = f"https://api.github.com/repos/{repo}"
+        headers = {"Authorization": f"token {token}"}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            return response.json()["default_branch"]
+    except:
+        pass
+    return "main"
+
+def list_repo_files(token: str, repo: str, branch: str = "main") -> list:
+    """List all JSON files in the repo root"""
+    try:
+        url = f"https://api.github.com/repos/{repo}/contents?ref={branch}"
+        headers = {"Authorization": f"token {token}"}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            files = response.json()
+            json_files = [f['name'] for f in files if f['name'].endswith('.json')]
+            return json_files
+    except:
+        pass
+    return []
+
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def fetch_github_file(file_name: str) -> dict:
+def fetch_github_file(file_name: str, branch: str = "main") -> dict:
     """Fetch and decode base64 file from GitHub"""
     try:
-        token = st.secrets["GITHUB_TOKEN"]
-        repo = st.secrets["GITHUB_REPO"]
-        branch = "main"  # Default branch
+        token = st.secrets.get("GITHUB_TOKEN")
+        repo = st.secrets.get("GITHUB_REPO")
+        
+        if not token or not repo:
+            st.error("❌ Secrets not configured!")
+            st.info("""
+### Setup Secrets:
+1. Click ⚙️ (top-right corner)
+2. Click "Secrets"
+3. Add these exactly:
+```
+GITHUB_TOKEN = "ghp_xxxxxxxxxxxx"
+GITHUB_REPO = "owner/repo"
+```
+4. Refresh page (F5)
+            """)
+            return {}
         
         url = f"https://api.github.com/repos/{repo}/contents/{file_name}?ref={branch}"
         headers = {"Authorization": f"token {token}"}
         
-        # Faster timeout for Streamlit Cloud
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=8)
+        
+        if response.status_code == 401:
+            st.error("❌ GitHub token is invalid or expired!")
+            return {}
+        
+        if response.status_code == 403:
+            st.error("❌ Access denied! Check token has 'repo' scope.")
+            return {}
+        
+        if response.status_code == 404:
+            # Try master branch if main fails
+            if branch == "main":
+                st.warning(f"⚠️ `{file_name}` not found on 'main' branch, trying 'master'...")
+                return fetch_github_file(file_name, branch="master")
+            else:
+                st.error(f"❌ File not found: {file_name}")
+                st.info(f"""
+Checklist:
+- File exists in repo: {repo}
+- Correct branch: {branch}
+- File name: {file_name}
+- File is committed (not just local)
+
+**Debug Info**:
+- Repo: {repo}
+- File: {file_name}
+- Branch: {branch}
+            """)
+                return {}
+        
         response.raise_for_status()
         
         # Decode base64 content
@@ -71,19 +142,28 @@ def fetch_github_file(file_name: str) -> dict:
         decoded = base64.b64decode(content).decode('utf-8')
         return json.loads(decoded)
     
-    except KeyError as e:
+    except requests.exceptions.Timeout:
+        st.error(f"⏱️ Timeout fetching {file_name} (network slow)")
         return {}
     
-    except requests.exceptions.Timeout:
+    except json.JSONDecodeError as e:
+        st.error(f"❌ Invalid JSON in {file_name}: {str(e)}")
         return {}
     
     except Exception as e:
+        st.error(f"❌ Error fetching {file_name}: {str(e)}")
         return {}
 
 def load_data() -> Tuple[dict, dict]:
     """Load GK and Maths data from GitHub"""
-    gk_data = fetch_github_file("gk_data.json")
-    maths_data = fetch_github_file("maths_data.json")
+    token = st.secrets.get("GITHUB_TOKEN")
+    repo = st.secrets.get("GITHUB_REPO")
+    
+    # Auto-detect the default branch
+    branch = get_default_branch(token, repo) if token and repo else "main"
+    
+    gk_data = fetch_github_file("gk_data.json", branch=branch)
+    maths_data = fetch_github_file("maths_data.json", branch=branch)
     return gk_data, maths_data
 
 # ============================================================================
@@ -413,46 +493,128 @@ def main():
     st.markdown("---")
     
     # Check if secrets are configured
-    try:
-        token = st.secrets["GITHUB_TOKEN"]
-        repo = st.secrets["GITHUB_REPO"]
-    except KeyError:
+    token = st.secrets.get("GITHUB_TOKEN")
+    repo = st.secrets.get("GITHUB_REPO")
+    
+    if not token or not repo:
         st.error("❌ GitHub secrets not configured.")
         st.info("""
-### Quick Setup:
+### ⚙️ Setup in 30 Seconds:
 
-1. **Click the ⚙️ icon** (top-right corner)
-2. **Select "Secrets"**
-3. **Paste this**:
-```
-GITHUB_TOKEN = "ghp_your_token_here"
+1. **Click the settings icon** ⚙️ (top-right corner)
+2. **Click "Secrets"**
+3. **Copy-paste this** (replace values):
+```toml
+GITHUB_TOKEN = "ghp_your_actual_token_here"
 GITHUB_REPO = "your-username/your-repo"
 ```
 
-**Need a token?**
-- https://github.com/settings/tokens
-- "Generate new token (classic)"
-- Select `repo` scope
-- Copy & paste above
-- **Refresh this page** (F5)
+**Get a GitHub token**:
+1. https://github.com/settings/tokens
+2. "Generate new token (classic)"
+3. Name: `ssc-planner`
+4. Check ✅ `repo` only
+5. Copy token → paste above
+6. **Refresh page** (F5)
         """)
-        return
+        st.stop()
     
-    # Load data
+    # Load data with debugging
+    st.info(f"🔗 Connecting to: **{repo}**")
+    
+    # Get the actual default branch
+    default_branch = get_default_branch(token, repo)
+    st.info(f"📦 Using branch: **{default_branch}**")
+    
+    with st.spinner("📥 Fetching available files..."):
+        available_files = list_repo_files(token, repo, branch=default_branch)
+        if available_files:
+            st.success(f"Found {len(available_files)} JSON file(s): {', '.join(available_files)}")
+    
     with st.spinner("📥 Fetching your study data..."):
+        # Try original names first
         gk_data, maths_data = load_data()
+        
+        # If gk_data not found, try alternative names
+        if not gk_data:
+            for alt_name in ["revision.json", "gk.json", "gk_revisions.json"]:
+                if alt_name in available_files:
+                    st.warning(f"⚠️ Found `{alt_name}` instead of `gk_data.json`")
+                    st.info("Please rename the file to `gk_data.json` or let me know the exact name")
+                    break
     
-    if not gk_data or not maths_data:
-        st.warning("⏳ Data is loading... If this takes >10 seconds, check:")
-        st.info("""
-- ✓ GitHub token is valid
-- ✓ GITHUB_REPO is correct (format: `owner/repo`)
-- ✓ Files exist in repo: `gk_data.json`, `maths_data.json`
-- ✓ Files are committed (not just in local folder)
+    # Check what we got
+    if not gk_data:
+        st.error("❌ Could not fetch `gk_data.json`")
+        
+        # Show what files are available
+        available_files = list_repo_files(token, repo, branch=default_branch)
+        
+        if available_files:
+            st.info(f"""
+**Files found in {repo}:**
+{available_files}
 
-**Try again**: Click refresh button or wait 5 minutes for cache to clear.
-        """)
-        return
+**Your file might have a different name!**
+
+If you see `gk_data.json` in the list above, the file exists but:
+- Check if it's valid JSON
+- Verify it has the right structure
+
+If you see a DIFFERENT file name, tell me the exact name!
+
+Example:
+- `gk_revisions.json`
+- `gk.json`
+- `data.json`
+- etc.
+            """)
+        else:
+            st.info(f"""
+**No JSON files found in {repo}**
+
+Checklist:
+1. Files should be at **root level** (not in a folder)
+2. Files must be **committed to git** (not just local)
+3. Files must be **valid JSON**
+
+Files needed:
+- `gk_data.json` 
+- `maths_data.json`
+
+Or if they have different names, let me know!
+            """)
+        st.stop()
+    
+    if not maths_data:
+        st.error("❌ Could not fetch `maths_data.json`")
+        
+        # Show what files are available
+        available_files = list_repo_files(token, repo, branch=default_branch)
+        
+        if available_files:
+            st.info(f"""
+**Files found in {repo}:**
+{available_files}
+
+**Your file might have a different name!**
+
+If you see `maths_data.json` in the list above, the file exists but:
+- Check if it's valid JSON
+- Verify it has the right structure
+
+If you see a DIFFERENT file name, tell me the exact name!
+            """)
+        else:
+            st.info(f"""
+**No JSON files found in {repo}**
+
+Checklist:
+1. Files should be at **root level** (not in a folder)
+2. Files must be **committed to git** (not just local)
+3. Files must be **valid JSON**
+            """)
+        st.stop()
     
     today = datetime.now()
     
