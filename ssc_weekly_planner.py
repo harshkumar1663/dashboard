@@ -96,7 +96,7 @@ def list_repo_files(token: str, repo: str, branch: str = "main") -> list:
         st.error(f"Error listing files: {e}")
         return []
 
-@st.cache_data(ttl=1)  # Very short cache (1 second) to debug
+@st.cache_data(ttl=300)
 def fetch_github_file(file_name: str, branch: str = "main") -> dict:
     """Fetch and decode base64 file from GitHub"""
     try:
@@ -127,8 +127,6 @@ GITHUB_REPO = "owner/repo"
         
         with st.spinner(f"Fetching {file_name} from {branch}..."):
             response = requests.get(url, headers=headers, timeout=8)
-        
-        st.write(f"DEBUG: {file_name} from {branch} - Status {response.status_code}")
         
         if response.status_code == 401:
             st.error("❌ GitHub token is invalid or expired!")
@@ -213,13 +211,8 @@ def get_gk_priorities(gk_data: dict, today: datetime) -> Dict:
     
     revisions = gk_data["revisions"]
     
-    # Debug: show what we got
-    st.write(f"DEBUG: revisions type = {type(revisions)}, keys = {list(revisions.keys())[:3] if isinstance(revisions, dict) else 'N/A'}")
-    
     # Handle different data structures
     if not isinstance(revisions, dict):
-        st.error(f"❌ revisions is not a dictionary, it's a {type(revisions)}")
-        st.write(f"Data: {revisions}")
         return priorities
     
     for topic, rev_list in revisions.items():
@@ -607,17 +600,11 @@ GITHUB_REPO = "your-username/your-repo"
         repo = repo.replace("https://github.com/", "").rstrip("/")
         st.warning(f"🔧 Cleaned repo URL from: {original_repo} → {repo}")
     
-    # Load data with debugging
-    st.info(f"🔗 Connecting to: **{repo}**")
-    
     # Get the actual default branch
     default_branch = get_default_branch(token, repo)
-    st.info(f"📦 Using branch: **{default_branch}**")
     
     with st.spinner("📥 Fetching available files..."):
         available_files = list_repo_files(token, repo, branch=default_branch)
-        if available_files:
-            st.success(f"Found {len(available_files)} JSON file(s): {', '.join(available_files)}")
     
     with st.spinner("📥 Fetching your study data..."):
         # Try original names first
