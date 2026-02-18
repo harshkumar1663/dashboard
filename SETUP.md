@@ -23,32 +23,32 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Step 4: Setup GitHub Token
+### Step 4: Run the App
+```bash
+streamlit run ssc_weekly_planner.py
+```
 
-#### Generate Token:
+### Step 5: Configure GitHub Secrets (First Time)
+
+When the app loads for the first time:
+
+1. **Click the ⚙️ settings icon** (top-right corner of Streamlit)
+2. **Click "Secrets"**
+3. **Add these secrets**:
+   ```toml
+   GITHUB_TOKEN = "ghp_your_actual_token_here"
+   GITHUB_REPO = "your-username/your-tracker-repo"
+   ```
+4. **Refresh the app** (F5 or click Refresh button)
+
+#### Generate a GitHub Token:
 1. Go to https://github.com/settings/tokens
 2. Click "Generate new token (classic)"
 3. Name it: `ssc-weekly-planner`
-4. Select scope: ✅ `repo` (for read-only access)
+4. Select scope: ✅ `repo` (read-only access)
 5. Click "Generate token"
 6. **Copy the token** (you won't see it again!)
-
-#### Configure Secrets:
-Create `.streamlit/secrets.toml` in this directory:
-```toml
-GITHUB_TOKEN = "ghp_YourActualTokenHere"
-GITHUB_REPO = "your-username/your-tracker-repo"
-GITHUB_BRANCH = "main"
-```
-
-**Example**:
-```toml
-GITHUB_TOKEN = "ghp_ABC123DEF456GHI789JKL012MNO345PQR"
-GITHUB_REPO = "harsh-singhania/SSC-Tracker"
-GITHUB_BRANCH = "main"
-```
-
-## 3️⃣ Prepare Your Data Files
+7. Paste into Streamlit Secrets UI
 
 Your GitHub repository must have these files at the root:
 

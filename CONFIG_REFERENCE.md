@@ -2,20 +2,21 @@
 
 ## Secrets Configuration
 
-### `.streamlit/secrets.toml`
+### Using Streamlit's Built-in Secrets Management
 
-This file contains sensitive GitHub access credentials. **NEVER commit this to version control.**
+The easiest way to add secrets:
+
+1. **Open the app in Streamlit**
+2. **Click the ⚙️ settings icon** (top-right corner)
+3. **Click "Secrets"**
+4. **Add these two secrets**:
 
 ```toml
-# Required: GitHub Personal Access Token
 GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-# Required: GitHub repository in format "owner/repo"
-GITHUB_REPO = "harsh-singhania/SSC-Tracker"
-
-# Optional: Branch name (defaults to "main")
-GITHUB_BRANCH = "main"
+GITHUB_REPO = "your-username/your-tracker-repo"
 ```
+
+**That's it!** The app automatically reads from this secrets UI.
 
 ### How to Generate GITHUB_TOKEN
 
@@ -27,12 +28,23 @@ GITHUB_BRANCH = "main"
    - Token name: `ssc-weekly-planner`
 
 3. **Select Permissions**
-   - Check only: ✅ `repo` (implies read-only to public/private repos you have access to)
-   - Recommended expiry: 90 days (auto-renew periodically)
+   - Check only: ✅ `repo` (read-only access)
+   - Recommended expiry: 90 days
 
 4. **Copy & Save**
    - Copy the token immediately (you won't see it again!)
-   - Paste into `.streamlit/secrets.toml`
+   - Paste into Streamlit Secrets UI
+
+### (Optional) Manual .streamlit/secrets.toml
+
+If you prefer file-based configuration, create `.streamlit/secrets.toml`:
+
+```toml
+GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+GITHUB_REPO = "your-username/your-tracker-repo"
+```
+
+**Note**: This file is in `.gitignore` so it won't be committed to version control.
 
 ### Token Security
 

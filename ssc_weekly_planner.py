@@ -52,14 +52,9 @@ st.markdown("""
 def fetch_github_file(file_name: str) -> dict:
     """Fetch and decode base64 file from GitHub"""
     try:
-        token = st.secrets.get("GITHUB_TOKEN")
-        if not token:
-            st.error("❌ GitHub token not configured in secrets")
-            return {}
-        
-        # GitHub API endpoint for getting file content
-        repo = st.secrets.get("GITHUB_REPO", "harsh-singhania/SSC-Tracker")
-        branch = st.secrets.get("GITHUB_BRANCH", "main")
+        token = st.secrets["GITHUB_TOKEN"]
+        repo = st.secrets["GITHUB_REPO"]
+        branch = "main"  # Default branch
         
         url = f"https://api.github.com/repos/{repo}/contents/{file_name}?ref={branch}"
         headers = {"Authorization": f"token {token}"}
@@ -71,6 +66,11 @@ def fetch_github_file(file_name: str) -> dict:
         content = response.json()["content"]
         decoded = base64.b64decode(content).decode('utf-8')
         return json.loads(decoded)
+    
+    except KeyError as e:
+        st.error(f"❌ Missing secret: {str(e)}")
+        st.info("Add secrets via Streamlit Settings:\n1. Click ⚙️ (settings) → Secret management\n2. Add: GITHUB_TOKEN, GITHUB_REPO")
+        return {}
     
     except Exception as e:
         st.error(f"❌ Error fetching {file_name}: {str(e)}")
@@ -413,8 +413,24 @@ def main():
         gk_data, maths_data = load_data()
     
     if not gk_data or not maths_data:
-        st.error("❌ Unable to load study data. Please check GitHub token and repository configuration.")
-        st.info("Add these to `.streamlit/secrets.toml`:\n```\nGITHUB_TOKEN = 'your_token'\nGITHUB_REPO = 'owner/repo'\nGITHUB_BRANCH = 'main'\n```")
+        st.error("❌ Unable to load study data. Please configure GitHub secrets.")
+        st.info("""
+### Setup Instructions:
+
+1. **Click the ⚙️ icon** in the top-right corner
+2. **Select "Secrets"**
+3. **Add these secrets**:
+   ```
+   GITHUB_TOKEN = "ghp_your_token_here"
+   GITHUB_REPO = "your-username/your-repo"
+   ```
+
+**To generate a GitHub token**:
+- Go to https://github.com/settings/tokens
+- Click "Generate new token (classic)"
+- Select `repo` scope only
+- Copy and paste above
+        """)
         return
     
     today = datetime.now()
