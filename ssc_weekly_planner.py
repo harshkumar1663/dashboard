@@ -81,11 +81,9 @@ def list_repo_files(token: str, repo: str, branch: str = "main") -> list:
         
         if response.status_code == 200:
             files = response.json()
-            # Show detailed file info
+            # Extract JSON files silently
             json_files = []
-            st.write(f"**Found {len(files)} files/folders:**")
             for f in files:
-                st.write(f"  - {f['name']} ({f['type']})")
                 if f['name'].endswith('.json'):
                     json_files.append(f['name'])
             return json_files
@@ -162,7 +160,6 @@ To see if file exists on any branch
             content = response.json()["content"]
             decoded = base64.b64decode(content).decode('utf-8')
             data = json.loads(decoded)
-            st.success(f"✓ Loaded {file_name}")
             return data
         
         response.raise_for_status()
@@ -598,7 +595,6 @@ GITHUB_REPO = "your-username/your-repo"
     if repo.startswith("https://github.com/"):
         original_repo = repo
         repo = repo.replace("https://github.com/", "").rstrip("/")
-        st.warning(f"🔧 Cleaned repo URL from: {original_repo} → {repo}")
     
     # Get the actual default branch
     default_branch = get_default_branch(token, repo)
