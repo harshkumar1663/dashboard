@@ -73,13 +73,22 @@ def list_repo_files(token: str, repo: str, branch: str = "main") -> list:
         
         if response.status_code == 200:
             files = response.json()
-            json_files = [f['name'] for f in files if f['name'].endswith('.json')]
+            # Show detailed file info
+            json_files = []
+            st.write(f"**Found {len(files)} files/folders:**")
+            for f in files:
+                st.write(f"  - {f['name']} ({f['type']})")
+                if f['name'].endswith('.json'):
+                    json_files.append(f['name'])
             return json_files
-    except:
-        pass
-    return []
+        else:
+            st.error(f"Can't list files - API Status: {response.status_code}")
+            return []
+    except Exception as e:
+        st.error(f"Error listing files: {e}")
+        return []
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+@st.cache_data(ttl=1)  # Very short cache (1 second) to debug
 def fetch_github_file(file_name: str, branch: str = "main") -> dict:
     """Fetch and decode base64 file from GitHub"""
     try:
@@ -104,7 +113,10 @@ GITHUB_REPO = "owner/repo"
         url = f"https://api.github.com/repos/{repo}/contents/{file_name}?ref={branch}"
         headers = {"Authorization": f"token {token}"}
         
-        response = requests.get(url, headers=headers, timeout=8)
+        with st.spinner(f"Fetching {file_name} from {branch}..."):
+            response = requests.get(url, headers=headers, timeout=8)
+        
+        st.write(f"DEBUG: {file_name} from {branch} - Status {response.status_code}")
         
         if response.status_code == 401:
             st.error("❌ GitHub token is invalid or expired!")
@@ -117,30 +129,34 @@ GITHUB_REPO = "owner/repo"
         if response.status_code == 404:
             # Try master branch if main fails
             if branch == "main":
-                st.warning(f"⚠️ `{file_name}` not found on 'main' branch, trying 'master'...")
                 return fetch_github_file(file_name, branch="master")
             else:
                 st.error(f"❌ File not found: {file_name}")
                 st.info(f"""
-Checklist:
-- File exists in repo: {repo}
-- Correct branch: {branch}
-- File name: {file_name}
-- File is committed (not just local)
+File `{file_name}` not found on branch '{branch}'
 
 **Debug Info**:
+- URL: {url}
+- Status: 404
+- Token: {token[:20]}...
 - Repo: {repo}
-- File: {file_name}
 - Branch: {branch}
-            """)
+
+Try running: git log --all --oneline -- {file_name}
+To see if file exists on any branch
+                """)
                 return {}
         
-        response.raise_for_status()
+        if response.status_code == 200:
+            # Decode base64 content
+            content = response.json()["content"]
+            decoded = base64.b64decode(content).decode('utf-8')
+            data = json.loads(decoded)
+            st.success(f"✓ Loaded {file_name}")
+            return data
         
-        # Decode base64 content
-        content = response.json()["content"]
-        decoded = base64.b64decode(content).decode('utf-8')
-        return json.loads(decoded)
+        response.raise_for_status()
+        return {}
     
     except requests.exceptions.Timeout:
         st.error(f"⏱️ Timeout fetching {file_name} (network slow)")
@@ -152,6 +168,7 @@ Checklist:
     
     except Exception as e:
         st.error(f"❌ Error fetching {file_name}: {str(e)}")
+        st.write(f"Full error: {e}")
         return {}
 
 def load_data() -> Tuple[dict, dict]:
