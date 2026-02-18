@@ -50,6 +50,8 @@ When the app loads for the first time:
 6. **Copy the token** (you won't see it again!)
 7. Paste into Streamlit Secrets UI
 
+## 3️⃣ Prepare Your Data Files
+
 Your GitHub repository must have these files at the root:
 
 ### `gk_data.json`
@@ -87,7 +89,19 @@ Your GitHub repository must have these files at the root:
 }
 ```
 
-## 4️⃣ Run the App
+## 4️⃣ Verify Setup
+
+```bash
+python verify_setup.py
+```
+
+This will check:
+- Python version
+- Dependencies installed
+- GitHub token validity
+- Data files accessible
+
+## 5️⃣ Run the App
 
 ```bash
 streamlit run ssc_weekly_planner.py
@@ -95,7 +109,7 @@ streamlit run ssc_weekly_planner.py
 
 The app will open in your browser at `http://localhost:8501`
 
-## 5️⃣ Understanding the UI
+## 6️⃣ Understanding the UI
 
 ### 📅 Today's Study Plan
 Shows:
@@ -187,14 +201,15 @@ def get_gk_priorities(gk_data: dict, today: datetime) -> Dict:
 ### Slow load times
 ✅ **Solution**: Cache will speed up subsequent loads
 
-## 📚 Example Workflow
+## 7️⃣ Example Workflow
 
 1. **Setup** (first time)
    ```bash
    python -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
-   # Create .streamlit/secrets.toml with GitHub token
+   streamlit run ssc_weekly_planner.py
+   # Add secrets via Settings → Secrets in Streamlit UI
    ```
 
 2. **Run** (every time)

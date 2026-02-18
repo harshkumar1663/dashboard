@@ -58,19 +58,21 @@ If no tasks are due, system suggests:
 pip install -r requirements.txt
 ```
 
-### 2. Configure GitHub Token
-Create or edit `.streamlit/secrets.toml`:
+### 2. Configure GitHub Secrets
+Open the app and:
+1. Click the **⚙️ settings icon** (top-right)
+2. Click **"Secrets"**
+3. Add two secrets:
 ```toml
-GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+GITHUB_TOKEN = "ghp_your_token_here"
 GITHUB_REPO = "your-username/your-repo"
-GITHUB_BRANCH = "main"
 ```
 
 **To generate a GitHub token**:
 1. Go to GitHub → Settings → Developer settings → Personal access tokens
 2. Click "Generate new token (classic)"
 3. Select `repo` scope (read-only access)
-4. Copy the token and paste in secrets.toml
+4. Copy the token and paste in Streamlit Secrets
 
 ### 3. Prepare Data Files
 Ensure your GitHub repo has:

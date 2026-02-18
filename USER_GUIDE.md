@@ -11,22 +11,26 @@ A **read-only smart study dashboard** that:
 
 ## Quick Start (3 Steps)
 
-### 1. Install & Configure
+### 1. Install & Run
 ```bash
 pip install -r requirements.txt
-
-# Create .streamlit/secrets.toml with GitHub token
-```
-
-### 2. Verify Setup
-```bash
-python verify_setup.py
-```
-
-### 3. Run the Dashboard
-```bash
 streamlit run ssc_weekly_planner.py
 ```
+
+### 2. Configure Secrets (First Time)
+When the app loads:
+1. Click the **⚙️ icon** (top-right corner)
+2. Click **"Secrets"**
+3. Add:
+```toml
+GITHUB_TOKEN = "ghp_your_token_here"
+GITHUB_REPO = "your-username/your-repo"
+```
+
+### 3. Refresh & Use
+- Refresh the browser
+- Dashboard loads your study data
+- Use it to plan your week!
 
 ## Understanding the Dashboard
 
@@ -324,13 +328,14 @@ To add your own smart suggestions:
 ## Support & Help
 
 ### For Setup Issues
-→ Check `SETUP.md`
+→ Click ⚙️ → Secrets to add GitHub credentials
+→ Verify token has `repo` scope
 
 ### For Data Format Issues
-→ Check `CONFIG_REFERENCE.md`
+→ Check `SETUP.md` and `CONFIG_REFERENCE.md`
 
 ### For Configuration Issues
-→ Run `python verify_setup.py`
+→ Run `python verify_setup.py` for diagnostics
 
 ### For Customization
 → Edit `ssc_weekly_planner.py` directly
