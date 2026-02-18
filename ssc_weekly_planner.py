@@ -266,55 +266,37 @@ def get_gk_priorities(gk_data: dict, today: datetime) -> Dict:
     return priorities
 
 def get_maths_priorities(maths_data: dict, today: datetime) -> List[Dict]:
-    """Calculate Maths priorities based on practice dates and accuracy"""
+    """Calculate Maths priorities based on practice dates and accuracy. Chapters is a list."""
     priorities = []
     
     if not maths_data:
-        st.error("❌ maths_data is empty")
         return priorities
     
-    # Detailed debugging
-    st.write("### Maths Data Structure Debugging:")
-    st.write(f"**maths_data type:** {type(maths_data)}")
-    st.write(f"**maths_data keys:** {list(maths_data.keys()) if isinstance(maths_data, dict) else 'Not a dict'}")
-    st.write(f"**maths_data content (first 500 chars):** {str(maths_data)[:500]}")
-    
     if "chapters" not in maths_data:
-        st.error(f"❌ 'chapters' key not found. Available keys: {list(maths_data.keys())}")
         return priorities
     
     chapters = maths_data["chapters"]
     
-    # More detailed debugging about chapters
-    st.write(f"**chapters type:** {type(chapters)}")
-    st.write(f"**chapters is dict?:** {isinstance(chapters, dict)}")
-    st.write(f"**chapters is list?:** {isinstance(chapters, list)}")
-    st.write(f"**chapters is None?:** {chapters is None}")
-    st.write(f"**chapters value (first 500 chars):** {str(chapters)[:500]}")
-    
-    # Handle different data structures
-    if chapters is None:
-        st.error("❌ chapters is None")
+    # Handle chapters as a list
+    if not isinstance(chapters, list):
+        st.warning(f"⚠️ chapters is not a list, it's a {type(chapters).__name__}")
         return priorities
     
-    if not isinstance(chapters, dict):
-        st.error(f"❌ chapters is not a dictionary, it's a {type(chapters).__name__}")
-        if isinstance(chapters, list):
-            st.info(f"Found a list with {len(chapters)} items")
-            if chapters:
-                st.write(f"First item: {chapters[0]}")
-        return priorities
-    
-    st.success(f"✅ chapters is a dictionary with {len(chapters)} items")
-    
-    for chapter_name, chapter_info in chapters.items():
-        if not isinstance(chapter_info, dict):
-            st.warning(f"⚠️ Skipping '{chapter_name}' - value is {type(chapter_info).__name__}, not a dict")
+    for chapter_item in chapters:
+        if not isinstance(chapter_item, dict):
             continue
         
         try:
-            next_practice = datetime.fromisoformat(chapter_info.get("next_practice_date", today.isoformat()))
-            accuracy = chapter_info.get("accuracy", 1.0)
+            # Get chapter name from 'name' or 'chapter' field
+            chapter_name = chapter_item.get("name") or chapter_item.get("chapter") or "Unknown"
+            next_practice_str = chapter_item.get("next_practice_date", today.isoformat())
+            accuracy = chapter_item.get("accuracy", 1.0)
+            
+            # Parse date
+            try:
+                next_practice = datetime.fromisoformat(next_practice_str)
+            except:
+                continue
             
             if next_practice.date() <= today.date():
                 priority = "HIGH" if accuracy < 0.7 else "MEDIUM"
@@ -325,56 +307,48 @@ def get_maths_priorities(maths_data: dict, today: datetime) -> List[Dict]:
                     "priority": priority
                 })
         except Exception as e:
-            st.warning(f"⚠️ Error processing '{chapter_name}': {e}")
-            st.write(f"   Chapter info: {chapter_info}")
             continue
     
     return priorities
 
 def get_reasoning_priorities(maths_data: dict, today: datetime) -> List[Dict]:
-    """Calculate Reasoning priorities (similar to Maths)"""
+    """Calculate Reasoning priorities. Reasoning is a list."""
     priorities = []
     
     if "reasoning" not in maths_data:
-        st.warning("⚠️ 'reasoning' key not found in maths_data")
         return priorities
     
-    reasoning_chapters = maths_data["reasoning"]
+    reasoning_list = maths_data["reasoning"]
     
-    # Detailed debugging about reasoning
-    st.write("### Reasoning Data Structure Debugging:")
-    st.write(f"**reasoning type:** {type(reasoning_chapters)}")
-    st.write(f"**reasoning is dict?:** {isinstance(reasoning_chapters, dict)}")
-    st.write(f"**reasoning value (first 500 chars):** {str(reasoning_chapters)[:500]}")
-    
-    # Handle different data structures
-    if not isinstance(reasoning_chapters, dict):
-        st.error(f"❌ reasoning is not a dictionary, it's a {type(reasoning_chapters).__name__}")
-        if isinstance(reasoning_chapters, list):
-            st.info(f"Found a list with {len(reasoning_chapters)} items")
+    # Handle reasoning as a list
+    if not isinstance(reasoning_list, list):
         return priorities
     
-    st.success(f"✅ reasoning is a dictionary with {len(reasoning_chapters)} items")
-    
-    for chapter_name, chapter_info in reasoning_chapters.items():
-        if not isinstance(chapter_info, dict):
-            st.warning(f"⚠️ Skipping '{chapter_name}' - value is {type(chapter_info).__name__}, not a dict")
+    for topic_item in reasoning_list:
+        if not isinstance(topic_item, dict):
             continue
         
         try:
-            next_practice = datetime.fromisoformat(chapter_info.get("next_practice_date", today.isoformat()))
-            accuracy = chapter_info.get("accuracy", 1.0)
+            # Get topic name from 'name' or 'topic' field
+            topic_name = topic_item.get("name") or topic_item.get("topic") or "Unknown"
+            next_practice_str = topic_item.get("next_practice_date", today.isoformat())
+            accuracy = topic_item.get("accuracy", 1.0)
+            
+            # Parse date
+            try:
+                next_practice = datetime.fromisoformat(next_practice_str)
+            except:
+                continue
             
             if next_practice.date() <= today.date():
                 priority = "HIGH" if accuracy < 0.7 else "MEDIUM"
                 priorities.append({
-                    "chapter": chapter_name,
+                    "topic": topic_name,
                     "next_practice_date": next_practice,
                     "accuracy": accuracy,
                     "priority": priority
                 })
         except Exception as e:
-            st.warning(f"⚠️ Error processing '{chapter_name}': {e}")
             continue
     
     return priorities
@@ -551,14 +525,16 @@ def render_guidance_section(gk_data: dict, maths_data: dict, today: datetime, ex
     
     # Check for weak areas in Maths
     if "chapters" in maths_data:
-        weak_maths = [
-            (name, info.get("accuracy", 1.0)) 
-            for name, info in maths_data["chapters"].items() 
-            if isinstance(info, dict) and info.get("accuracy", 1.0) < 0.7
-        ]
-        if weak_maths:
-            weakest = min(weak_maths, key=lambda x: x[1])
-            guidance_items.append(f"⚠️ **Maths Focus**: {weakest[0]} accuracy is {weakest[1]:.0%} - prioritize practice")
+        chapters = maths_data["chapters"]
+        if isinstance(chapters, list):
+            weak_maths = [
+                (item.get("name") or item.get("chapter") or "Unknown", item.get("accuracy", 1.0)) 
+                for item in chapters 
+                if isinstance(item, dict) and item.get("accuracy", 1.0) < 0.7
+            ]
+            if weak_maths:
+                weakest = min(weak_maths, key=lambda x: x[1])
+                guidance_items.append(f"⚠️ **Maths Focus**: {weakest[0]} accuracy is {weakest[1]:.0%} - prioritize practice")
     
     # Check for weak GK sections
     if "revisions" in gk_data:
@@ -654,13 +630,6 @@ GITHUB_REPO = "your-username/your-repo"
                     st.warning(f"⚠️ Found `{alt_name}` instead of `gk_data.json`")
                     st.info("Please rename the file to `gk_data.json` or let me know the exact name")
                     break
-    
-    # Show data structure for debugging
-    st.write("---")
-    st.write("### 📋 Data Structure Debug Info:")
-    st.write(f"**gk_data keys:** {list(gk_data.keys()) if gk_data else 'Empty'}")
-    st.write(f"**maths_data keys:** {list(maths_data.keys()) if maths_data else 'Empty'}")
-    st.write("---")
     
     # Check what we got
     if not gk_data:
