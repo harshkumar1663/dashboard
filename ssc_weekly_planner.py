@@ -115,7 +115,7 @@ def load_data() -> Tuple[dict, dict]:
 # ============================================================================
 
 def get_gk_priorities(gk_data: dict, today: datetime) -> Dict:
-    """Calculate GK priorities based on revision dates from lectures"""
+    """Calculate GK priorities based on NEXT revision dates from lectures"""
     priorities = {
         "overdue": [],
         "due_today": [],
@@ -135,35 +135,56 @@ def get_gk_priorities(gk_data: dict, today: datetime) -> Dict:
         topic = lecture_info.get("name", "Unknown")
         revision_dates = lecture_info.get("revision_dates", {})
         
-        # Check each revision date
+        # Find the NEXT upcoming revision (first one that hasn't passed)
+        next_revision = None
+        next_revision_key = None
+        
         for revision_key in sorted(revision_dates.keys()):
             try:
                 rev_date_str = revision_dates[revision_key]
-                # Parse YYYY-MM-DD format
                 rev_date = datetime.strptime(rev_date_str, "%Y-%m-%d").date()
                 
-                if rev_date < today.date():
-                    if {"topic": topic, "date": rev_date} not in priorities["overdue"]:
-                        priorities["overdue"].append({
-                            "topic": topic,
-                            "date": rev_date,
-                            "difficulty": lecture_info.get("difficulty", 1)
-                        })
-                elif rev_date == today.date():
-                    if {"topic": topic, "date": rev_date} not in priorities["due_today"]:
-                        priorities["due_today"].append({
-                            "topic": topic,
-                            "date": rev_date,
-                            "difficulty": lecture_info.get("difficulty", 1)
-                        })
-                else:
-                    priorities["upcoming"].append({
-                        "topic": topic,
-                        "date": rev_date,
-                        "difficulty": lecture_info.get("difficulty", 1)
-                    })
+                # Find first future or today's revision
+                if rev_date >= today.date():
+                    next_revision = rev_date
+                    next_revision_key = revision_key
+                    break
             except (ValueError, KeyError):
                 continue
+        
+        # If no future revision found, the last one is overdue
+        if next_revision is None and revision_dates:
+            last_key = sorted(revision_dates.keys())[-1]
+            try:
+                rev_date_str = revision_dates[last_key]
+                next_revision = datetime.strptime(rev_date_str, "%Y-%m-%d").date()
+                next_revision_key = last_key
+            except (ValueError, KeyError):
+                continue
+        
+        # Now categorize this ONE lecture based on its next revision date
+        if next_revision:
+            if next_revision < today.date():
+                priorities["overdue"].append({
+                    "topic": topic,
+                    "date": next_revision,
+                    "difficulty": lecture_info.get("difficulty", 1),
+                    "revision_key": next_revision_key
+                })
+            elif next_revision == today.date():
+                priorities["due_today"].append({
+                    "topic": topic,
+                    "date": next_revision,
+                    "difficulty": lecture_info.get("difficulty", 1),
+                    "revision_key": next_revision_key
+                })
+            else:
+                priorities["upcoming"].append({
+                    "topic": topic,
+                    "date": next_revision,
+                    "difficulty": lecture_info.get("difficulty", 1),
+                    "revision_key": next_revision_key
+                })
     
     return priorities
 
