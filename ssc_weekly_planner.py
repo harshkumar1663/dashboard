@@ -63,21 +63,40 @@ def fetch_github_file(file_name: str) -> dict:
         headers = {"Authorization": f"token {token}"}
         
         # Faster timeout for Streamlit Cloud
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=8)
+        
+        if response.status_code == 401:
+            st.error("❌ GitHub token is invalid")
+            return {}
+        elif response.status_code == 403:
+            st.error("❌ Access denied - check token has 'repo' scope")
+            return {}
+        elif response.status_code == 404:
+            st.error(f"❌ File not found: {file_name}")
+            return {}
+        
         response.raise_for_status()
         
         # Decode base64 content
         content = response.json()["content"]
         decoded = base64.b64decode(content).decode('utf-8')
-        return json.loads(decoded)
-    
-    except KeyError as e:
-        return {}
+        data = json.loads(decoded)
+        return data
     
     except requests.exceptions.Timeout:
+        st.error(f"⏱️ Timeout fetching {file_name}")
+        return {}
+    
+    except json.JSONDecodeError as e:
+        st.error(f"❌ Invalid JSON in {file_name}: {str(e)}")
+        return {}
+    
+    except KeyError as e:
+        st.error(f"❌ Missing secret: {str(e)}")
         return {}
     
     except Exception as e:
+        st.error(f"❌ Error loading {file_name}: {str(e)}")
         return {}
 
 def load_data() -> Tuple[dict, dict]:
