@@ -57,6 +57,11 @@ def fetch_github_file(file_name: str) -> dict:
     try:
         token = st.secrets["GITHUB_TOKEN"]
         repo = st.secrets["GITHUB_REPO"]
+        
+        # Auto-clean full GitHub URLs to repo path format
+        if repo.startswith("https://github.com/"):
+            repo = repo.replace("https://github.com/", "").rstrip("/")
+        
         branch = "main"  # Default branch
         
         url = f"https://api.github.com/repos/{repo}/contents/{file_name}?ref={branch}"
@@ -458,6 +463,9 @@ GITHUB_REPO = "your-username/your-repo"
         """)
         return
     
+    # Auto-clean full GitHub URLs to repo path format
+    if repo.startswith("https://github.com/"):
+        repo = repo.replace("https://github.com/", "").rstrip("/")
     # Load data
     with st.spinner("📥 Fetching your study data..."):
         gk_data, maths_data = load_data()
