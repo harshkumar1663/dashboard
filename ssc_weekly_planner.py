@@ -51,143 +51,39 @@ st.markdown("""
 # DATA FETCHING
 # ============================================================================
 
-def get_default_branch(token: str, repo: str) -> str:
-    """Get the default branch of the repo"""
-    # Clean up repo URL if user pasted full GitHub URL
-    if repo.startswith("https://github.com/"):
-        repo = repo.replace("https://github.com/", "").rstrip("/")
-    
-    try:
-        url = f"https://api.github.com/repos/{repo}"
-        headers = {"Authorization": f"token {token}"}
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            return response.json()["default_branch"]
-    except:
-        pass
-    return "main"
-
-def list_repo_files(token: str, repo: str, branch: str = "main") -> list:
-    """List all JSON files in the repo root"""
-    # Clean up repo URL if user pasted full GitHub URL
-    if repo.startswith("https://github.com/"):
-        repo = repo.replace("https://github.com/", "").rstrip("/")
-    
-    try:
-        url = f"https://api.github.com/repos/{repo}/contents?ref={branch}"
-        headers = {"Authorization": f"token {token}"}
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            files = response.json()
-            # Extract JSON files silently
-            json_files = []
-            for f in files:
-                if f['name'].endswith('.json'):
-                    json_files.append(f['name'])
-            return json_files
-        else:
-            st.error(f"Can't list files - API Status: {response.status_code}")
-            return []
-    except Exception as e:
-        st.error(f"Error listing files: {e}")
-        return []
-
-@st.cache_data(ttl=300)
-def fetch_github_file(file_name: str, branch: str = "main") -> dict:
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_github_file(file_name: str) -> dict:
     """Fetch and decode base64 file from GitHub"""
     try:
-        token = st.secrets.get("GITHUB_TOKEN")
-        repo = st.secrets.get("GITHUB_REPO")
-        
-        # Clean up repo URL if user pasted full GitHub URL
-        if repo and repo.startswith("https://github.com/"):
-            repo = repo.replace("https://github.com/", "").rstrip("/")
-        
-        if not token or not repo:
-            st.error("❌ Secrets not configured!")
-            st.info("""
-### Setup Secrets:
-1. Click ⚙️ (top-right corner)
-2. Click "Secrets"
-3. Add these exactly:
-```
-GITHUB_TOKEN = "ghp_xxxxxxxxxxxx"
-GITHUB_REPO = "owner/repo"
-```
-4. Refresh page (F5)
-            """)
-            return {}
+        token = st.secrets["GITHUB_TOKEN"]
+        repo = st.secrets["GITHUB_REPO"]
+        branch = "main"  # Default branch
         
         url = f"https://api.github.com/repos/{repo}/contents/{file_name}?ref={branch}"
         headers = {"Authorization": f"token {token}"}
         
-        with st.spinner(f"Fetching {file_name} from {branch}..."):
-            response = requests.get(url, headers=headers, timeout=8)
-        
-        if response.status_code == 401:
-            st.error("❌ GitHub token is invalid or expired!")
-            return {}
-        
-        if response.status_code == 403:
-            st.error("❌ Access denied! Check token has 'repo' scope.")
-            return {}
-        
-        if response.status_code == 404:
-            # Try master branch if main fails
-            if branch == "main":
-                return fetch_github_file(file_name, branch="master")
-            else:
-                st.error(f"❌ File not found: {file_name}")
-                st.info(f"""
-File `{file_name}` not found on branch '{branch}'
-
-**Debug Info**:
-- URL: {url}
-- Status: 404
-- Token: {token[:20]}...
-- Repo: {repo}
-- Branch: {branch}
-
-Try running: git log --all --oneline -- {file_name}
-To see if file exists on any branch
-                """)
-                return {}
-        
-        if response.status_code == 200:
-            # Decode base64 content
-            content = response.json()["content"]
-            decoded = base64.b64decode(content).decode('utf-8')
-            data = json.loads(decoded)
-            return data
-        
+        # Faster timeout for Streamlit Cloud
+        response = requests.get(url, headers=headers, timeout=5)
         response.raise_for_status()
+        
+        # Decode base64 content
+        content = response.json()["content"]
+        decoded = base64.b64decode(content).decode('utf-8')
+        return json.loads(decoded)
+    
+    except KeyError as e:
         return {}
     
     except requests.exceptions.Timeout:
-        st.error(f"⏱️ Timeout fetching {file_name} (network slow)")
-        return {}
-    
-    except json.JSONDecodeError as e:
-        st.error(f"❌ Invalid JSON in {file_name}: {str(e)}")
         return {}
     
     except Exception as e:
-        st.error(f"❌ Error fetching {file_name}: {str(e)}")
-        st.write(f"Full error: {e}")
         return {}
 
 def load_data() -> Tuple[dict, dict]:
     """Load GK and Maths data from GitHub"""
-    token = st.secrets.get("GITHUB_TOKEN")
-    repo = st.secrets.get("GITHUB_REPO")
-    
-    # Auto-detect the default branch
-    branch = get_default_branch(token, repo) if token and repo else "main"
-    
-    gk_data = fetch_github_file("gk_data.json", branch=branch)
-    maths_data = fetch_github_file("maths_data.json", branch=branch)
+    gk_data = fetch_github_file("gk_data.json")
+    maths_data = fetch_github_file("maths_data.json")
     return gk_data, maths_data
 
 # ============================================================================
@@ -195,7 +91,7 @@ def load_data() -> Tuple[dict, dict]:
 # ============================================================================
 
 def get_gk_priorities(gk_data: dict, today: datetime) -> Dict:
-    """Calculate GK priorities based on revisions"""
+    """Calculate GK priorities based on revision dates from lectures"""
     priorities = {
         "overdue": [],
         "due_today": [],
@@ -203,73 +99,61 @@ def get_gk_priorities(gk_data: dict, today: datetime) -> Dict:
         "upcoming": []
     }
     
-    if "revisions" not in gk_data:
+    if "lectures" not in gk_data:
         return priorities
     
-    revisions = gk_data["revisions"]
+    lectures = gk_data["lectures"]
     
-    # Handle different data structures
-    if not isinstance(revisions, dict):
-        return priorities
-    
-    for topic, rev_list in revisions.items():
-        if not isinstance(rev_list, list):
-            st.warning(f"⚠️ Skipping {topic} - not a list")
+    for lecture_id, lecture_info in lectures.items():
+        if not isinstance(lecture_info, dict):
             continue
         
-        for revision in rev_list:
-            if not isinstance(revision, dict):
-                continue
-            
+        topic = lecture_info.get("name", "Unknown")
+        revision_dates = lecture_info.get("revision_dates", {})
+        
+        # Check each revision date
+        for revision_key in sorted(revision_dates.keys()):
             try:
-                due_date = datetime.fromisoformat(revision["due_date"])
-                success_rate = revision.get("success_rate", 1.0)
+                rev_date_str = revision_dates[revision_key]
+                # Parse YYYY-MM-DD format
+                rev_date = datetime.strptime(rev_date_str, "%Y-%m-%d").date()
                 
-                if due_date < today:
-                    priorities["overdue"].append({
-                        "topic": topic,
-                        "due_date": due_date,
-                        "success_rate": success_rate
-                    })
-                elif due_date.date() == today.date():
-                    priorities["due_today"].append({
-                        "topic": topic,
-                        "due_date": due_date,
-                        "success_rate": success_rate
-                    })
-                elif success_rate < 0.7:
-                    priorities["weak_areas"].append({
-                        "topic": topic,
-                        "due_date": due_date,
-                        "success_rate": success_rate
-                    })
+                if rev_date < today.date():
+                    if {"topic": topic, "date": rev_date} not in priorities["overdue"]:
+                        priorities["overdue"].append({
+                            "topic": topic,
+                            "date": rev_date,
+                            "difficulty": lecture_info.get("difficulty", 1)
+                        })
+                elif rev_date == today.date():
+                    if {"topic": topic, "date": rev_date} not in priorities["due_today"]:
+                        priorities["due_today"].append({
+                            "topic": topic,
+                            "date": rev_date,
+                            "difficulty": lecture_info.get("difficulty", 1)
+                        })
                 else:
                     priorities["upcoming"].append({
                         "topic": topic,
-                        "due_date": due_date,
-                        "success_rate": success_rate
+                        "date": rev_date,
+                        "difficulty": lecture_info.get("difficulty", 1)
                     })
-            except Exception as e:
-                st.warning(f"⚠️ Error processing {topic}: {e}")
+            except (ValueError, KeyError):
                 continue
     
     return priorities
 
 def get_maths_priorities(maths_data: dict, today: datetime) -> List[Dict]:
-    """Calculate Maths priorities based on practice dates and accuracy. Chapters is a list."""
+    """Calculate Maths priorities based on practice dates and accuracy"""
     priorities = []
-    
-    if not maths_data:
-        return priorities
     
     if "chapters" not in maths_data:
         return priorities
     
     chapters = maths_data["chapters"]
     
-    # Handle chapters as a list
+    # chapters is a list
     if not isinstance(chapters, list):
-        st.warning(f"⚠️ chapters is not a list, it's a {type(chapters).__name__}")
         return priorities
     
     for chapter_item in chapters:
@@ -277,18 +161,21 @@ def get_maths_priorities(maths_data: dict, today: datetime) -> List[Dict]:
             continue
         
         try:
-            # Get chapter name from 'name' or 'chapter' field
-            chapter_name = chapter_item.get("name") or chapter_item.get("chapter") or "Unknown"
-            next_practice_str = chapter_item.get("next_practice_date", today.isoformat())
-            accuracy = chapter_item.get("accuracy", 1.0)
+            chapter_name = chapter_item.get("chapter_name", "Unknown")
+            next_practice_str = chapter_item.get("next_practice_date", "")
             
-            # Parse date
-            try:
-                next_practice = datetime.fromisoformat(next_practice_str)
-            except:
-                continue
+            # Parse DD-MM-YY format (e.g., "22-02-26")
+            next_practice = datetime.strptime(next_practice_str, "%d-%m-%y").date()
             
-            if next_practice.date() <= today.date():
+            # Get accuracy from latest practice session
+            practice_sessions = chapter_item.get("practice_sessions", [])
+            if practice_sessions and isinstance(practice_sessions, list):
+                latest_session = practice_sessions[-1]
+                accuracy = latest_session.get("accuracy", 100.0) / 100.0
+            else:
+                accuracy = 1.0
+            
+            if next_practice <= today.date():
                 priority = "HIGH" if accuracy < 0.7 else "MEDIUM"
                 priorities.append({
                     "chapter": chapter_name,
@@ -296,52 +183,16 @@ def get_maths_priorities(maths_data: dict, today: datetime) -> List[Dict]:
                     "accuracy": accuracy,
                     "priority": priority
                 })
-        except Exception as e:
+        except (ValueError, KeyError, TypeError):
             continue
     
     return priorities
 
 def get_reasoning_priorities(maths_data: dict, today: datetime) -> List[Dict]:
-    """Calculate Reasoning priorities. Reasoning is a list."""
-    priorities = []
-    
-    if "reasoning" not in maths_data:
-        return priorities
-    
-    reasoning_list = maths_data["reasoning"]
-    
-    # Handle reasoning as a list
-    if not isinstance(reasoning_list, list):
-        return priorities
-    
-    for topic_item in reasoning_list:
-        if not isinstance(topic_item, dict):
-            continue
-        
-        try:
-            # Get topic name from 'name' or 'topic' field
-            topic_name = topic_item.get("name") or topic_item.get("topic") or "Unknown"
-            next_practice_str = topic_item.get("next_practice_date", today.isoformat())
-            accuracy = topic_item.get("accuracy", 1.0)
-            
-            # Parse date
-            try:
-                next_practice = datetime.fromisoformat(next_practice_str)
-            except:
-                continue
-            
-            if next_practice.date() <= today.date():
-                priority = "HIGH" if accuracy < 0.7 else "MEDIUM"
-                priorities.append({
-                    "topic": topic_name,
-                    "next_practice_date": next_practice,
-                    "accuracy": accuracy,
-                    "priority": priority
-                })
-        except Exception as e:
-            continue
-    
-    return priorities
+    """Calculate Reasoning priorities - currently no reasoning data available"""
+    # Your JSON doesn't have reasoning data yet
+    # This function is ready to be populated when reasoning data is added
+    return []
 
 def classify_task_load(task_type: str) -> str:
     """Classify task by load"""
@@ -515,16 +366,14 @@ def render_guidance_section(gk_data: dict, maths_data: dict, today: datetime, ex
     
     # Check for weak areas in Maths
     if "chapters" in maths_data:
-        chapters = maths_data["chapters"]
-        if isinstance(chapters, list):
-            weak_maths = [
-                (item.get("name") or item.get("chapter") or "Unknown", item.get("accuracy", 1.0)) 
-                for item in chapters 
-                if isinstance(item, dict) and item.get("accuracy", 1.0) < 0.7
-            ]
-            if weak_maths:
-                weakest = min(weak_maths, key=lambda x: x[1])
-                guidance_items.append(f"⚠️ **Maths Focus**: {weakest[0]} accuracy is {weakest[1]:.0%} - prioritize practice")
+        weak_maths = [
+            (name, info.get("accuracy", 1.0)) 
+            for name, info in maths_data["chapters"].items() 
+            if isinstance(info, dict) and info.get("accuracy", 1.0) < 0.7
+        ]
+        if weak_maths:
+            weakest = min(weak_maths, key=lambda x: x[1])
+            guidance_items.append(f"⚠️ **Maths Focus**: {weakest[0]} accuracy is {weakest[1]:.0%} - prioritize practice")
     
     # Check for weak GK sections
     if "revisions" in gk_data:
@@ -565,127 +414,46 @@ def main():
     st.markdown("---")
     
     # Check if secrets are configured
-    token = st.secrets.get("GITHUB_TOKEN")
-    repo = st.secrets.get("GITHUB_REPO")
-    
-    if not token or not repo:
+    try:
+        token = st.secrets["GITHUB_TOKEN"]
+        repo = st.secrets["GITHUB_REPO"]
+    except KeyError:
         st.error("❌ GitHub secrets not configured.")
         st.info("""
-### ⚙️ Setup in 30 Seconds:
+### Quick Setup:
 
-1. **Click the settings icon** ⚙️ (top-right corner)
-2. **Click "Secrets"**
-3. **Copy-paste this** (replace values):
-```toml
-GITHUB_TOKEN = "ghp_your_actual_token_here"
+1. **Click the ⚙️ icon** (top-right corner)
+2. **Select "Secrets"**
+3. **Paste this**:
+```
+GITHUB_TOKEN = "ghp_your_token_here"
 GITHUB_REPO = "your-username/your-repo"
 ```
 
-**Get a GitHub token**:
-1. https://github.com/settings/tokens
-2. "Generate new token (classic)"
-3. Name: `ssc-planner`
-4. Check ✅ `repo` only
-5. Copy token → paste above
-6. **Refresh page** (F5)
+**Need a token?**
+- https://github.com/settings/tokens
+- "Generate new token (classic)"
+- Select `repo` scope
+- Copy & paste above
+- **Refresh this page** (F5)
         """)
-        st.stop()
+        return
     
-    # Clean up repo URL if user pasted full GitHub URL
-    if repo.startswith("https://github.com/"):
-        original_repo = repo
-        repo = repo.replace("https://github.com/", "").rstrip("/")
-    
-    # Get the actual default branch
-    default_branch = get_default_branch(token, repo)
-    
-    with st.spinner("📥 Fetching available files..."):
-        available_files = list_repo_files(token, repo, branch=default_branch)
-    
+    # Load data
     with st.spinner("📥 Fetching your study data..."):
-        # Try original names first
         gk_data, maths_data = load_data()
-        
-        # If gk_data not found, try alternative names
-        if not gk_data:
-            for alt_name in ["revision.json", "gk.json", "gk_revisions.json"]:
-                if alt_name in available_files:
-                    st.warning(f"⚠️ Found `{alt_name}` instead of `gk_data.json`")
-                    st.info("Please rename the file to `gk_data.json` or let me know the exact name")
-                    break
     
-    # Check what we got
-    if not gk_data:
-        st.error("❌ Could not fetch `gk_data.json`")
-        
-        # Show what files are available
-        available_files = list_repo_files(token, repo, branch=default_branch)
-        
-        if available_files:
-            st.info(f"""
-**Files found in {repo}:**
-{available_files}
+    if not gk_data or not maths_data:
+        st.warning("⏳ Data is loading... If this takes >10 seconds, check:")
+        st.info("""
+- ✓ GitHub token is valid
+- ✓ GITHUB_REPO is correct (format: `owner/repo`)
+- ✓ Files exist in repo: `gk_data.json`, `maths_data.json`
+- ✓ Files are committed (not just in local folder)
 
-**Your file might have a different name!**
-
-If you see `gk_data.json` in the list above, the file exists but:
-- Check if it's valid JSON
-- Verify it has the right structure
-
-If you see a DIFFERENT file name, tell me the exact name!
-
-Example:
-- `gk_revisions.json`
-- `gk.json`
-- `data.json`
-- etc.
-            """)
-        else:
-            st.info(f"""
-**No JSON files found in {repo}**
-
-Checklist:
-1. Files should be at **root level** (not in a folder)
-2. Files must be **committed to git** (not just local)
-3. Files must be **valid JSON**
-
-Files needed:
-- `gk_data.json` 
-- `maths_data.json`
-
-Or if they have different names, let me know!
-            """)
-        st.stop()
-    
-    if not maths_data:
-        st.error("❌ Could not fetch `maths_data.json`")
-        
-        # Show what files are available
-        available_files = list_repo_files(token, repo, branch=default_branch)
-        
-        if available_files:
-            st.info(f"""
-**Files found in {repo}:**
-{available_files}
-
-**Your file might have a different name!**
-
-If you see `maths_data.json` in the list above, the file exists but:
-- Check if it's valid JSON
-- Verify it has the right structure
-
-If you see a DIFFERENT file name, tell me the exact name!
-            """)
-        else:
-            st.info(f"""
-**No JSON files found in {repo}**
-
-Checklist:
-1. Files should be at **root level** (not in a folder)
-2. Files must be **committed to git** (not just local)
-3. Files must be **valid JSON**
-            """)
-        st.stop()
+**Try again**: Click refresh button or wait 5 minutes for cache to clear.
+        """)
+        return
     
     today = datetime.now()
     
@@ -693,32 +461,6 @@ Checklist:
     gk_priorities = get_gk_priorities(gk_data, today)
     maths_priorities = get_maths_priorities(maths_data, today)
     reasoning_priorities = get_reasoning_priorities(maths_data, today)
-    
-    # Debug: Show data structure
-    with st.expander("🔍 Debug: Data Structure & Priorities"):
-        st.write(f"**Today's Date:** {today.date()}")
-        st.write(f"**GK Data Keys:** {list(gk_data.keys()) if gk_data else 'Empty'}")
-        if gk_data and "revisions" in gk_data:
-            revisions = gk_data["revisions"]
-            st.write(f"  - Revisions type: {type(revisions).__name__}")
-            if isinstance(revisions, dict):
-                st.write(f"  - Total topics: {len(revisions)}")
-                for topic, rev_list in list(revisions.items())[:1]:
-                    st.write(f"  - Example topic '{topic}': {len(rev_list) if isinstance(rev_list, list) else '?'} items")
-                    if isinstance(rev_list, list) and rev_list:
-                        st.write(f"    First item: {rev_list[0]}")
-        
-        st.write(f"**Maths Data Keys:** {list(maths_data.keys()) if maths_data else 'Empty'}")
-        if maths_data and "chapters" in maths_data:
-            chapters = maths_data["chapters"]
-            st.write(f"  - Chapters type: {type(chapters).__name__}")
-            st.write(f"  - Total chapters: {len(chapters) if isinstance(chapters, list) else '?'}")
-            if isinstance(chapters, list) and chapters:
-                st.write(f"  - First chapter: {chapters[0]}")
-        
-        st.write(f"**GK Priorities (for today):** {len(gk_priorities.get('due_today', []))} due, {len(gk_priorities.get('overdue', []))} overdue")
-        st.write(f"**Maths Priorities:** {len([p for p in maths_priorities if p.get('priority') == 'HIGH'])} HIGH, {len([p for p in maths_priorities if p.get('priority') == 'MEDIUM'])} MEDIUM")
-        st.write(f"**Reasoning Priorities:** {len([p for p in reasoning_priorities if p.get('priority') == 'HIGH'])} HIGH, {len([p for p in reasoning_priorities if p.get('priority') == 'MEDIUM'])} MEDIUM")
     
     # Generate guidance
     zero_day_guidance = anti_zero_day_rule(gk_priorities, maths_priorities, reasoning_priorities)
