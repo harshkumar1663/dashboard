@@ -694,6 +694,32 @@ Checklist:
     maths_priorities = get_maths_priorities(maths_data, today)
     reasoning_priorities = get_reasoning_priorities(maths_data, today)
     
+    # Debug: Show data structure
+    with st.expander("🔍 Debug: Data Structure & Priorities"):
+        st.write(f"**Today's Date:** {today.date()}")
+        st.write(f"**GK Data Keys:** {list(gk_data.keys()) if gk_data else 'Empty'}")
+        if gk_data and "revisions" in gk_data:
+            revisions = gk_data["revisions"]
+            st.write(f"  - Revisions type: {type(revisions).__name__}")
+            if isinstance(revisions, dict):
+                st.write(f"  - Total topics: {len(revisions)}")
+                for topic, rev_list in list(revisions.items())[:1]:
+                    st.write(f"  - Example topic '{topic}': {len(rev_list) if isinstance(rev_list, list) else '?'} items")
+                    if isinstance(rev_list, list) and rev_list:
+                        st.write(f"    First item: {rev_list[0]}")
+        
+        st.write(f"**Maths Data Keys:** {list(maths_data.keys()) if maths_data else 'Empty'}")
+        if maths_data and "chapters" in maths_data:
+            chapters = maths_data["chapters"]
+            st.write(f"  - Chapters type: {type(chapters).__name__}")
+            st.write(f"  - Total chapters: {len(chapters) if isinstance(chapters, list) else '?'}")
+            if isinstance(chapters, list) and chapters:
+                st.write(f"  - First chapter: {chapters[0]}")
+        
+        st.write(f"**GK Priorities (for today):** {len(gk_priorities.get('due_today', []))} due, {len(gk_priorities.get('overdue', []))} overdue")
+        st.write(f"**Maths Priorities:** {len([p for p in maths_priorities if p.get('priority') == 'HIGH'])} HIGH, {len([p for p in maths_priorities if p.get('priority') == 'MEDIUM'])} MEDIUM")
+        st.write(f"**Reasoning Priorities:** {len([p for p in reasoning_priorities if p.get('priority') == 'HIGH'])} HIGH, {len([p for p in reasoning_priorities if p.get('priority') == 'MEDIUM'])} MEDIUM")
+    
     # Generate guidance
     zero_day_guidance = anti_zero_day_rule(gk_priorities, maths_priorities, reasoning_priorities)
     exam_proximity = exam_proximity_mode(maths_data, today)
