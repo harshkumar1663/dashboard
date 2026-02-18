@@ -390,25 +390,38 @@ def render_guidance_section(gk_data: dict, maths_data: dict, today: datetime, ex
     
     # Check for weak areas in Maths
     if "chapters" in maths_data:
-        weak_maths = [
-            (name, info.get("accuracy", 1.0)) 
-            for name, info in maths_data["chapters"].items() 
-            if isinstance(info, dict) and info.get("accuracy", 1.0) < 0.7
-        ]
-        if weak_maths:
-            weakest = min(weak_maths, key=lambda x: x[1])
-            guidance_items.append(f"⚠️ **Maths Focus**: {weakest[0]} accuracy is {weakest[1]:.0%} - prioritize practice")
+        chapters = maths_data["chapters"]
+        if isinstance(chapters, list):
+            weak_maths = []
+            for chapter in chapters:
+                if isinstance(chapter, dict):
+                    # Get accuracy from latest practice session
+                    practice_sessions = chapter.get("practice_sessions", [])
+                    if practice_sessions and isinstance(practice_sessions, list):
+                        accuracy = practice_sessions[-1].get("accuracy", 100) / 100
+                    else:
+                        accuracy = 1.0
+                    
+                    if accuracy < 0.7:
+                        weak_maths.append((chapter.get("chapter_name", "Unknown"), accuracy))
+            
+            if weak_maths:
+                weakest = min(weak_maths, key=lambda x: x[1])
+                guidance_items.append(f"⚠️ **Maths Focus**: {weakest[0]} accuracy is {weakest[1]:.0%} - prioritize practice")
     
     # Check for weak GK sections
-    if "revisions" in gk_data:
+    if "lectures" in gk_data:
         weak_gk = []
-        for topic, revisions in gk_data["revisions"].items():
-            if isinstance(revisions, list):
-                for rev in revisions:
-                    if rev.get("success_rate", 1.0) < 0.7:
-                        weak_gk.append(topic)
+        lectures = gk_data["lectures"]
+        if isinstance(lectures, dict):
+            for lecture_id, lecture_info in lectures.items():
+                if isinstance(lecture_info, dict):
+                    # Check if difficulty is high (3 = hardest)
+                    if lecture_info.get("difficulty", 1) == 3:
+                        weak_gk.append((lecture_info.get("name", "Unknown"), lecture_info.get("difficulty", 1)))
+        
         if weak_gk:
-            guidance_items.append(f"📖 **GK Focus**: {weak_gk[0]} needs improvement")
+            guidance_items.append(f"📖 **GK Focus**: High-difficulty topics need extra attention")
     
     # Exam proximity
     if exam_proximity:
