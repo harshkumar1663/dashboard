@@ -1,0 +1,49 @@
+{
+  "revisions": {
+    "Polity": [
+      {
+        "topic": "Constitution Basics",
+        "due_date": "2026-02-17T10:00:00",
+        "success_rate": 0.85,
+        "attempts": 5
+      },
+      {
+        "topic": "Articles Overview",
+        "due_date": "2026-02-18T10:00:00",
+        "success_rate": 0.92,
+        "attempts": 3
+      }
+    ],
+    "History": [
+      {
+        "topic": "Mughal Empire",
+        "due_date": "2026-02-19T10:00:00",
+        "success_rate": 0.78,
+        "attempts": 4
+      },
+      {
+        "topic": "British Raj",
+        "due_date": "2026-02-25T10:00:00",
+        "success_rate": 0.65,
+        "attempts": 2
+      }
+    ],
+    "Geography": [
+      {
+        "topic": "River Systems",
+        "due_date": "2026-02-20T10:00:00",
+        "success_rate": 0.88,
+        "attempts": 6
+      }
+    ],
+    "Economy": [
+      {
+        "topic": "Inflation and Deflation",
+        "due_date": "2026-02-18T14:00:00",
+        "success_rate": 0.55,
+        "attempts": 3
+      }
+    ]
+  },
+  "last_updated": "2026-02-18T09:00:00"
+}

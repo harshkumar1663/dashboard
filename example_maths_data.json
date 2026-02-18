@@ -1,0 +1,62 @@
+{
+  "exam_date": "2026-05-30T00:00:00",
+  "chapters": {
+    "Percentages": {
+      "next_practice_date": "2026-02-18T00:00:00",
+      "accuracy": 0.65,
+      "total_problems": 150,
+      "correct": 98
+    },
+    "Simple Interest": {
+      "next_practice_date": "2026-02-20T00:00:00",
+      "accuracy": 0.82,
+      "total_problems": 120,
+      "correct": 98
+    },
+    "Compound Interest": {
+      "next_practice_date": "2026-02-22T00:00:00",
+      "accuracy": 0.78,
+      "total_problems": 100,
+      "correct": 78
+    },
+    "Ratio and Proportion": {
+      "next_practice_date": "2026-02-25T00:00:00",
+      "accuracy": 0.91,
+      "total_problems": 110,
+      "correct": 101
+    },
+    "Time and Work": {
+      "next_practice_date": "2026-02-18T00:00:00",
+      "accuracy": 0.55,
+      "total_problems": 95,
+      "correct": 52
+    }
+  },
+  "reasoning": {
+    "Analogy": {
+      "next_practice_date": "2026-02-18T00:00:00",
+      "accuracy": 0.75,
+      "total_problems": 80,
+      "correct": 60
+    },
+    "Syllogism": {
+      "next_practice_date": "2026-02-20T00:00:00",
+      "accuracy": 0.88,
+      "total_problems": 100,
+      "correct": 88
+    },
+    "Classification": {
+      "next_practice_date": "2026-02-22T00:00:00",
+      "accuracy": 0.70,
+      "total_problems": 70,
+      "correct": 49
+    },
+    "Series": {
+      "next_practice_date": "2026-02-25T00:00:00",
+      "accuracy": 0.85,
+      "total_problems": 90,
+      "correct": 77
+    }
+  },
+  "last_updated": "2026-02-18T09:00:00"
+}
