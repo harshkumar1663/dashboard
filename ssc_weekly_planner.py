@@ -53,6 +53,10 @@ st.markdown("""
 
 def get_default_branch(token: str, repo: str) -> str:
     """Get the default branch of the repo"""
+    # Clean up repo URL if user pasted full GitHub URL
+    if repo.startswith("https://github.com/"):
+        repo = repo.replace("https://github.com/", "").rstrip("/")
+    
     try:
         url = f"https://api.github.com/repos/{repo}"
         headers = {"Authorization": f"token {token}"}
@@ -66,6 +70,10 @@ def get_default_branch(token: str, repo: str) -> str:
 
 def list_repo_files(token: str, repo: str, branch: str = "main") -> list:
     """List all JSON files in the repo root"""
+    # Clean up repo URL if user pasted full GitHub URL
+    if repo.startswith("https://github.com/"):
+        repo = repo.replace("https://github.com/", "").rstrip("/")
+    
     try:
         url = f"https://api.github.com/repos/{repo}/contents?ref={branch}"
         headers = {"Authorization": f"token {token}"}
@@ -94,6 +102,10 @@ def fetch_github_file(file_name: str, branch: str = "main") -> dict:
     try:
         token = st.secrets.get("GITHUB_TOKEN")
         repo = st.secrets.get("GITHUB_REPO")
+        
+        # Clean up repo URL if user pasted full GitHub URL
+        if repo and repo.startswith("https://github.com/"):
+            repo = repo.replace("https://github.com/", "").rstrip("/")
         
         if not token or not repo:
             st.error("❌ Secrets not configured!")
@@ -535,6 +547,12 @@ GITHUB_REPO = "your-username/your-repo"
 6. **Refresh page** (F5)
         """)
         st.stop()
+    
+    # Clean up repo URL if user pasted full GitHub URL
+    if repo.startswith("https://github.com/"):
+        original_repo = repo
+        repo = repo.replace("https://github.com/", "").rstrip("/")
+        st.warning(f"🔧 Cleaned repo URL from: {original_repo} → {repo}")
     
     # Load data with debugging
     st.info(f"🔗 Connecting to: **{repo}**")
